@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>iPhone Pro 工具箱</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Pro工具">
+    
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        :root { --ios-blue: #007AFF; }
+        body { 
+            font-family: -apple-system, system-ui, sans-serif;
+            background-color: #000; color: white; margin: 0;
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh;
+            /* 預留 iPhone 底部橫條與頂部動態島空間 */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .container {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; width: 90%;
+        }
+        .card {
+            background: #1c1c1e; padding: 25px; border-radius: 24px;
+            width: 100%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        }
+        button {
+            background: var(--ios-blue); color: white; border: none;
+            padding: 18px; border-radius: 14px; font-size: 18px;
+            font-weight: 600; margin-top: 15px; width: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+        button:active { opacity: 0.8; transform: scale(0.98); }
+        video { 
+            width: 100%; border-radius: 16px; margin-top: 15px; 
+            display: none; background: #333; 
+        }
+        .status { font-size: 14px; color: #8e8e93; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h1 style="margin: 0; font-size: 28px;">Pro Max Panel</h1>
+            <p class="status">偵測到：iPhone 15 Pro Max (Web PWA)</p>
+            
+            <video id="preview" autoplay playsinline></video>
+            
+            <button onclick="startCamera()">啟動主鏡頭</button>
+            <button onclick="triggerHaptic()">測試觸覺回饋</button>
+        </div>
+    </div>
+
+    <script>
+        // 註冊 Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js');
+            });
+        }
+
+        async function startCamera() {
+            const video = document.getElementById('preview');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                video.srcObject = stream;
+                video.style.display = "block";
+            } catch (err) {
+                alert("無法存取相機，請確保使用 HTTPS 開啟此網頁。");
+            }
+        }
+
+        function triggerHaptic() {
+            if (navigator.vibrate) {
+                navigator.vibrate([80, 50, 80]);
+            } else {
+                alert("請將此網頁『加入主畫面』後再測試震動功能！");
+            }
+        }
+    </script>
+</body>
+</html>
