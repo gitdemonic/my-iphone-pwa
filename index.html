@@ -3,188 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>小 do 行李確認 v1.1.0</title>
-    <link rel="manifest" href="./manifest.json">
+    <title>小 do 行李確認 v1.2.0</title>
     <style>
-        :root {
-            --ios-bg: #F2F2F7;
-            --ios-card: #FFFFFF;
-            --ios-blue: #007AFF;
-            --ios-sep: #C6C6C8;
-        }
-        /* 讓捲動更平滑 */
+        :root { --ios-bg: #F2F2F7; --ios-card: #FFFFFF; --ios-blue: #007AFF; --ios-sep: #C6C6C8; --ios-red: #FF3B30; }
         html { scroll-behavior: smooth; }
+        body { background-color: var(--ios-bg); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 100px; }
+        .header { padding: 40px 20px 10px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .header h1 { margin: 0; font-size: 34px; }
+        .btn-text { color: var(--ios-blue); font-size: 17px; cursor: pointer; }
         
-        body { background-color: var(--ios-bg); font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 0 0 100px; }
-        
-        #offline-notice { display: none; background: #FFF9C4; padding: 10px; text-align: center; font-size: 13px; color: #856404; position: sticky; top: 0; z-index: 1000; }
-        
-        .header { padding: 20px 20px 10px; font-size: 34px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        /* 編輯模式樣式 */
+        .edit-mode-only { display: none; }
+        .is-editing .edit-mode-only { display: inline-flex; }
+        .is-editing .checkbox { display: none; }
 
-        /* 版本號樣式 */
-        .version-tag { font-size: 12px; color: #8e8e93; font-weight: normal; margin-top: 4px; }
-
-        /* 右側快速導覽列 (iOS Index Style) */
-        .quick-nav {
-            position: fixed;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 999;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            padding: 10px 6px;
-            border-radius: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            border: 0.5px solid var(--ios-sep);
-        }
-        .nav-item {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            color: var(--ios-blue);
-            text-decoration: none;
-            font-weight: bold;
-            text-align: center;
-            line-height: 1;
-        }
-
-        #settings-overlay { display: none; padding: 20px; background: var(--ios-card); margin: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 12px; border: 1px solid var(--ios-sep); border-radius: 8px; margin: 10px 0; box-sizing: border-box; font-size: 16px; }
-        button { background: var(--ios-blue); color: white; border: none; padding: 12px 20px; border-radius: 8px; width: 100%; font-weight: 600; font-size: 17px; }
-        
-        .section-title { padding: 30px 20px 8px; font-size: 13px; color: #6e6e73; text-transform: uppercase; scroll-margin-top: 20px; }
+        /* 列表樣式 */
+        .section-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 20px 8px; }
+        .section-title { font-size: 13px; color: #6e6e73; text-transform: uppercase; }
         .list-group { background: var(--ios-card); border-top: 0.5px solid var(--ios-sep); border-bottom: 0.5px solid var(--ios-sep); }
-        .list-item { display: flex; align-items: center; padding: 12px 20px; border-bottom: 0.5px solid var(--ios-sep); cursor: pointer; }
-        .list-item:active { background: #E5E5EA; }
+        .list-item { display: flex; align-items: center; padding: 12px 20px; border-bottom: 0.5px solid var(--ios-sep); }
+        .item-content { flex: 1; }
+        .item-name { font-size: 17px; }
+        .item-note { font-size: 14px; color: #8e8e93; }
+        
+        /* 表單彈窗 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 2000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 85%; max-width: 400px; }
+        input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid var(--ios-sep); border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .modal-btns { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-main { background: var(--ios-blue); color: white; border: none; padding: 10px; border-radius: 8px; flex: 1; }
+        .btn-cancel { background: #E5E5EA; color: black; border: none; padding: 10px; border-radius: 8px; flex: 1; }
+        
         .checkbox { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ios-sep); margin-right: 15px; flex-shrink: 0; }
         .checkbox.checked { background-color: var(--ios-blue); border-color: var(--ios-blue); }
-        .checkbox.checked::after { content: '✓'; color: white; display: block; text-align: center; line-height: 20px; font-size: 14px; }
+        .checkbox.checked::after { content: '✓'; color: white; display: block; text-align: center; line-height: 20px; }
+        .delete-icon { color: var(--ios-red); margin-left: 10px; }
+        
+        /* 快速導覽 */
+        .quick-nav { position: fixed; right: 8px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.8); padding: 10px 5px; border-radius: 20px; border: 0.5px solid var(--ios-sep); }
+        .nav-item { font-size: 11px; color: var(--ios-blue); text-decoration: none; text-align: center; }
     </style>
 </head>
-<body>
-    <div id="offline-notice">⚠️ 離線模式</div>
-    
+<body id="body">
+
     <div class="header">
         <div>
-            行李確認
-            <div class="version-tag">v1.1.0 (20251230)</div>
+            <div style="font-size: 12px; color: #8e8e93;">v1.2.0</div>
+            <h1>行李確認</h1>
         </div>
-        <span onclick="toggleSettings()" style="font-size: 17px; color: var(--ios-blue);">設定</span>
-    </div>
-
-    <div class="quick-nav" id="quick-nav">
+        <div>
+            <span class="btn-text" onclick="showAddModal()" style="margin-right: 15px;">＋新增</span>
+            <span class="btn-text" id="edit-toggle" onclick="toggleEditMode()">編輯</span>
         </div>
-
-    <div id="settings-overlay">
-        <input type="text" id="api-url-input" placeholder="貼上 GAS URL">
-        <button onclick="saveSettings()">儲存</button>
     </div>
 
     <div id="list-container"></div>
+    <div class="quick-nav" id="quick-nav"></div>
+
+    <div id="item-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title">新增項目</h3>
+            <select id="f-category"></select>
+            <input type="text" id="f-name" placeholder="項目名稱">
+            <input type="text" id="f-note" placeholder="備註 (選填)">
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn-main" onclick="saveItem()">儲存</button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        const VERSION = "1.1.0";
         let API_URL = localStorage.getItem('my_trip_api_url');
         let currentData = [];
-
-        // 導覽標籤縮寫映射 (避免太擁擠)
-        const categoryMap = {
-            "機場": "機場",
-            "重要": "重要",
-            "行李": "行李",
-            "衣物": "衣物",
-            "小do專區": "小do"
-        };
+        let isEditing = false;
+        let editingOldName = null;
 
         async function fetchData() {
             if (!API_URL) return;
             try {
                 const res = await fetch(API_URL);
                 currentData = await res.json();
-                localStorage.setItem('cached_trip_data', JSON.stringify(currentData));
-                localStorage.setItem('last_sync', new Date().toLocaleString());
-                document.getElementById('offline-notice').style.display = 'none';
-                renderList(currentData);
-            } catch (e) {
-                const cached = localStorage.getItem('cached_trip_data');
-                if (cached) {
-                    currentData = JSON.parse(cached);
-                    renderList(currentData);
-                    document.getElementById('offline-notice').style.display = 'block';
-                    document.getElementById('offline-notice').innerText = `⚠️ 離線模式 (更新於: ${localStorage.getItem('last_sync')})`;
-                }
-            }
+                renderList();
+            } catch (e) { alert('同步失敗'); }
         }
 
-        function renderList(data) {
+        function toggleEditMode() {
+            isEditing = !isEditing;
+            document.getElementById('body').classList.toggle('is-editing', isEditing);
+            document.getElementById('edit-toggle').innerText = isEditing ? '完成' : '編輯';
+            renderList();
+        }
+
+        function renderList() {
             const container = document.getElementById('list-container');
             const nav = document.getElementById('quick-nav');
-            container.innerHTML = '';
-            nav.innerHTML = '';
+            const select = document.getElementById('f-category');
+            container.innerHTML = ''; nav.innerHTML = ''; select.innerHTML = '<option value="+new">+ 新增主項目</option>';
             
-            const groups = data.reduce((acc, i) => {
-                const cat = i.category || '未分類';
-                if (!acc[cat]) acc[cat] = [];
-                acc[cat].push(i);
+            const groups = currentData.reduce((acc, i) => {
+                if (!acc[i.category]) acc[i.category] = [];
+                acc[i.category].push(i);
                 return acc;
             }, {});
 
-            let index = 0;
-            for (const cat in groups) {
-                const sectionId = `section-${index}`;
-                
-                // 產生右側導覽按鈕
-                const shortName = categoryMap[cat] || cat.substring(0, 2);
-                nav.innerHTML += `<a href="#${sectionId}" class="nav-item">${shortName}</a>`;
+            Object.keys(groups).forEach((cat, idx) => {
+                select.innerHTML += `<option value="${cat}">${cat}</option>`;
+                nav.innerHTML += `<a href="#s-${idx}" class="nav-item">${cat.substring(0,2)}</a>`;
 
-                // 產生清單內容
-                let html = `<div class="section-title" id="${sectionId}">${cat}</div><div class="list-group">`;
+                let html = `<div class="section-header" id="s-${idx}">
+                    <span class="section-title">${cat}</span>
+                    <span class="btn-text edit-mode-only" onclick="editCategory('${cat}')" style="font-size:12px">重新命名</span>
+                </div><div class="list-group">`;
+                
                 groups[cat].forEach(i => {
                     html += `
-                        <div class="list-item" onclick="toggleItem('${i.name}')">
-                            <div class="checkbox ${i.checked ? 'checked' : ''}"></div>
-                            <div class="item-content">
-                                <div class="item-name">${i.name}</div>
-                                ${i.note ? `<div class="item-note">${i.note}</div>` : ''}
-                            </div>
-                        </div>`;
+                    <div class="list-item">
+                        <div class="checkbox ${i.checked ? 'checked' : ''}" onclick="toggleCheck('${i.name}')"></div>
+                        <div class="item-content" onclick="${isEditing ? `openEditModal('${i.name}')` : `toggleCheck('${i.name}')`}">
+                            <div class="item-name">${i.name}</div>
+                            <div class="item-note">${i.note || ''}</div>
+                        </div>
+                        <span class="edit-mode-only delete-icon" onclick="deleteItem('${i.name}')">✕</span>
+                    </div>`;
                 });
-                html += `</div>`;
-                container.innerHTML += html;
-                index++;
-            }
+                container.innerHTML += html + '</div>';
+            });
         }
 
-        async function toggleItem(name) {
+        function showAddModal() {
+            editingOldName = null;
+            document.getElementById('modal-title').innerText = "新增項目";
+            document.getElementById('f-name').value = "";
+            document.getElementById('f-note').value = "";
+            document.getElementById('item-modal').style.display = 'flex';
+        }
+
+        function openEditModal(name) {
             const item = currentData.find(i => i.name === name);
-            if (!item) return;
+            editingOldName = name;
+            document.getElementById('modal-title').innerText = "編輯項目";
+            document.getElementById('f-category').value = item.category;
+            document.getElementById('f-name').value = item.name;
+            document.getElementById('f-note').value = item.note;
+            document.getElementById('item-modal').style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('item-modal').style.display = 'none'; }
+
+        async function saveItem() {
+            let cat = document.getElementById('f-category').value;
+            const name = document.getElementById('f-name').value.trim();
+            const note = document.getElementById('f-note').value.trim();
+            
+            if (cat === "+new") {
+                cat = prompt("請輸入新主項目名稱");
+                if (!cat) return;
+            }
+            if (!name) return;
+
+            const action = editingOldName ? "edit_item" : "add_item";
+            const body = { action, category: cat, name, note, oldName: editingOldName, newName: name };
+
+            // 樂觀更新
+            if (editingOldName) {
+                const i = currentData.find(d => d.name === editingOldName);
+                i.category = cat; i.name = name; i.note = note;
+            } else {
+                currentData.push({ category: cat, name, note, checked: false });
+            }
+            renderList();
+            closeModal();
+
+            await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(body) });
+        }
+
+        async function deleteItem(name) {
+            if (!confirm(`確定要刪除「${name}」嗎？`)) return;
+            currentData = currentData.filter(i => i.name !== name);
+            renderList();
+            await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "delete_item", name }) });
+        }
+
+        async function editCategory(oldCat) {
+            const newCat = prompt("請輸入新的類別名稱", oldCat);
+            if (!newCat || newCat === oldCat) return;
+            currentData.forEach(i => { if(i.category === oldCat) i.category = newCat; });
+            renderList();
+            await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "edit_category", oldCat, newCat }) });
+        }
+
+        async function toggleCheck(name) {
+            if (isEditing) return;
+            const item = currentData.find(i => i.name === name);
             item.checked = !item.checked;
-            renderList(currentData);
-            localStorage.setItem('cached_trip_data', JSON.stringify(currentData));
-            try {
-                await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify({ name: item.name, checked: item.checked })
-                });
-            } catch (e) { console.error('Sync failed'); }
-        }
-
-        function toggleSettings() {
-            const el = document.getElementById('settings-overlay');
-            el.style.display = el.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function saveSettings() {
-            const url = document.getElementById('api-url-input').value.trim();
-            if (url) { localStorage.setItem('my_trip_api_url', url); API_URL = url; toggleSettings(); fetchData(); }
+            renderList();
+            await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "update_checked", name, checked: item.checked }) });
         }
 
         fetchData();
