@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>小 do 旅行準備</title> <style>
+    <title>小 do 旅行準備</title>
+    <link rel="manifest" href="./manifest.json">
+    <style>
         :root {
             --ios-bg: #F2F2F7;
             --ios-card: #FFFFFF;
@@ -15,17 +17,28 @@
             background-color: var(--ios-bg);
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             margin: 0;
-            padding: 20px 0 100px; /* 為底部按鈕預留空間 */
+            padding: 0 0 100px;
+        }
+        /* 離線提示欄 */
+        #offline-notice {
+            display: none;
+            background: #FFF9C4;
+            padding: 10px;
+            text-align: center;
+            font-size: 13px;
+            color: #856404;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
         .header {
-            padding: 0 20px 10px;
+            padding: 20px 20px 10px;
             font-size: 34px;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        /* 設定介面樣式 */
         #settings-overlay {
             display: none;
             padding: 20px;
@@ -41,6 +54,7 @@
             border-radius: 8px;
             margin: 10px 0;
             box-sizing: border-box;
+            font-size: 16px; /* 防止 iOS 輸入時自動放大 */
         }
         button {
             background: var(--ios-blue);
@@ -50,17 +64,17 @@
             border-radius: 8px;
             width: 100%;
             font-weight: 600;
+            font-size: 17px;
         }
         .btn-ghost {
             background: none;
             color: var(--ios-blue);
             margin-top: 10px;
         }
-
-        /* 列表樣式 */
         .section-title { padding: 20px 20px 8px; font-size: 13px; color: #6e6e73; text-transform: uppercase; }
         .list-group { background: var(--ios-card); border-top: 0.5px solid var(--ios-sep); border-bottom: 0.5px solid var(--ios-sep); }
         .list-item { display: flex; align-items: center; padding: 12px 20px; border-bottom: 0.5px solid var(--ios-sep); }
+        .list-item:last-child { border-bottom: none; }
         .item-name { font-size: 17px; }
         .item-note { font-size: 14px; color: #8e8e93; }
         .checkbox { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ios-sep); margin-right: 15px; flex-shrink: 0; }
@@ -69,6 +83,8 @@
     </style>
 </head>
 <body>
+
+    <div id="offline-notice">⚠️ 離線模式 (資料讀取自快取)</div>
 
     <div class="header">
         <span>行李確認</span>
@@ -85,7 +101,15 @@
     <div id="list-container"></div>
 
     <script>
-        // 從 LocalStorage 取得 API 網址
+        // 1. 註冊 Service Worker 實現離線存取
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('SW Registered'))
+                    .catch(err => console.log('SW Failed', err));
+            });
+        }
+
         let API_URL = localStorage.getItem('my_trip_api_url');
 
         function toggleSettings() {
@@ -105,27 +129,57 @@
         }
 
         async function fetchData() {
+            const container = document.getElementById('list-container');
+            const notice = document.getElementById('offline-notice');
+
             if (!API_URL) {
-                document.getElementById('list-container').innerHTML = 
-                    `<div style="padding: 40px; text-align: center; color: #8e8e93;">請點擊右上角「設定」來輸入 API 網址</div>`;
+                container.innerHTML = `<div style="padding: 40px; text-align: center; color: #8e8e93;">請點擊右上角「設定」來輸入 API 網址</div>`;
                 return;
             }
 
             try {
+                // 嘗試抓取網路資料
                 const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+                
                 const data = await response.json();
+                
+                // 成功抓取後存入 LocalStorage 當作快取
+                localStorage.setItem('cached_trip_data', JSON.stringify(data));
+                localStorage.setItem('last_sync_time', new Date().toLocaleString());
+                
+                notice.style.display = 'none';
                 renderList(data);
             } catch (e) {
-                alert('讀取失敗，請檢查 URL 是否正確或是否已發佈為「所有人」');
+                console.log('Fetching failed, trying cache...', e);
+                
+                // 網路失敗，讀取快取
+                const cachedData = localStorage.getItem('cached_trip_data');
+                const lastSync = localStorage.getItem('last_sync_time');
+                
+                if (cachedData) {
+                    renderList(JSON.parse(cachedData));
+                    notice.style.display = 'block';
+                    notice.innerText = `⚠️ 離線模式 (上次更新: ${lastSync})`;
+                } else {
+                    container.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--ios-red);">無法連線且無暫存資料</div>`;
+                }
             }
         }
 
         function renderList(data) {
             const container = document.getElementById('list-container');
             container.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = `<div style="padding: 40px; text-align: center;">清單是空的</div>`;
+                return;
+            }
+
             const groups = data.reduce((acc, item) => {
-                if (!acc[item.category]) acc[item.category] = [];
-                acc[item.category].push(item);
+                const cat = item.category || '未分類';
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(item);
                 return acc;
             }, {});
 
@@ -146,7 +200,7 @@
             }
         }
 
-        // 初始化
+        // 初始化載入
         fetchData();
     </script>
 </body>

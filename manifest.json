@@ -1,13 +1,13 @@
 {
-  "name": "iPhone Pro Toolbox",
-  "short_name": "Pro工具",
-  "start_url": "index.html",
+  "name": "小 do 行李確認",
+  "short_name": "行李確認",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#F2F2F7",
+  "theme_color": "#007AFF",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/5968/5968756.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/3144/3144467.png",
       "sizes": "512x512",
       "type": "image/png"
     }
