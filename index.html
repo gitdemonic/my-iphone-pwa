@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>小 do 行李確認 v1.4.2</title>
+    <title>小 do 行李確認 v1.4.3</title>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         :root { --ios-bg: #F2F2F7; --ios-card: #FFFFFF; --ios-blue: #007AFF; --ios-sep: #C6C6C8; --ios-red: #FF3B30; --ios-yellow: #FFCC00; --ios-green: #34C759; }
-        body { background-color: var(--ios-bg); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 120px; }
+        body { background-color: var(--ios-bg); font-family: -apple-system, sans-serif; margin: 0; padding-bottom: 120px; overflow-x: hidden; }
         
         /* 置頂導覽列 */
         .sticky-top {
@@ -23,7 +23,6 @@
         .header-btns::-webkit-scrollbar { display: none; }
         .btn-text { color: var(--ios-blue); font-size: 16px; cursor: pointer; white-space: nowrap; font-weight: 500; }
 
-        /* 同步狀態 */
         .sync-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8e8e93; font-weight: 600; margin-bottom: 6px; padding: 0 20px; }
         .led { width: 9px; height: 9px; border-radius: 50%; }
         .led-syncing { background: var(--ios-yellow); box-shadow: 0 0 5px var(--ios-yellow); }
@@ -32,80 +31,55 @@
 
         /* 列表樣式 */
         .section-header { display: flex; justify-content: space-between; align-items: center; padding: 28px 20px 10px; }
-        .section-title { font-size: 13px; color: #6e6e73; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .section-title { font-size: 13px; color: #6e6e73; text-transform: uppercase; font-weight: 600; }
         .list-group { background: var(--ios-card); border-top: 0.5px solid var(--ios-sep); border-bottom: 0.5px solid var(--ios-sep); }
         .list-item { display: flex; align-items: center; padding: 14px 20px; border-bottom: 0.5px solid var(--ios-sep); background: white; }
         .item-content { flex: 1; }
         .item-name { font-size: 17px; color: #000; }
         .item-note { font-size: 14px; color: #8e8e93; margin-top: 2px; }
 
-        /* 輸入框與選擇器調整 */
-        input, select { 
-            width: 100%; 
-            padding: 14px 16px; 
-            margin: 10px 0; 
-            border: 1px solid var(--ios-sep); 
-            border-radius: 12px; 
-            box-sizing: border-box; 
-            font-size: 17px; /* 增加字體防止 iOS 自動縮放 */
-            background-color: #f9f9f9;
-            -webkit-appearance: none;
-        }
-
-        /* 按鈕強化調整 */
-        .btn-primary {
-            background: var(--ios-blue); 
-            color: white; 
-            border: none; 
-            padding: 16px; 
-            border-radius: 12px; 
-            width: 100%; 
-            font-weight: 600; 
-            font-size: 17px;
-            margin-top: 10px;
-        }
-        .btn-secondary {
-            background: #E5E5EA; 
-            color: #000; 
-            border: none; 
-            padding: 16px; 
-            border-radius: 12px; 
-            width: 100%; 
-            font-weight: 500; 
-            font-size: 17px;
-        }
-
-        /* 彈窗樣式優化 */
-        .modal-content { 
-            background: white; 
-            padding: 28px; 
-            border-radius: 20px; 
-            width: 85%; 
-            max-width: 380px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        }
-        #settings-overlay { 
-            display: none; 
-            padding: 20px; 
-            background: #e9e9eb; 
-            margin: 10px 20px; 
-            border-radius: 16px; 
-        }
-
-        /* 其餘控制項維持 v1.4.1 */
+        /* 修復 Bug 1: 強制隱藏刪除按鈕 */
+        .edit-mode-only { display: none !important; }
+        .is-editing .edit-mode-only { display: flex !important; }
+        
+        /* 編輯模式控制項 */
+        .is-editing .checkbox { display: none !important; }
+        .drag-handle { color: #C7C7CC; font-size: 22px; padding-left: 10px; display: none; }
+        .is-editing .drag-handle { display: flex; }
         .checkbox { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--ios-sep); margin-right: 15px; flex-shrink: 0; }
         .checkbox.checked { background-color: var(--ios-blue); border-color: var(--ios-blue); }
         .checkbox.checked::after { content: '✓'; color: white; display: block; text-align: center; line-height: 22px; font-weight: bold; }
-        .drag-handle { color: #C7C7CC; font-size: 22px; padding-left: 10px; display: none; }
-        .is-editing .drag-handle { display: flex; }
-        .is-editing .checkbox { display: none; }
 
-        /* iOS 同步選單 (Action Sheet) */
-        #sync-sheet { display: none; position: fixed; bottom: 0; left: 0; width: 100%; z-index: 3000; padding: 10px 15px 30px; box-sizing: border-box; }
+        /* 修復 Bug 2: 彈窗絕對隔離 */
+        .modal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.5); z-index: 5000; align-items: center; justify-content: center;
+            pointer-events: none; opacity: 0; transition: opacity 0.2s;
+        }
+        .modal.show { display: flex; pointer-events: auto; opacity: 1; }
+
+        .modal-content { 
+            background: white; padding: 28px; border-radius: 20px; width: 85%; max-width: 380px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        input, select { 
+            width: 100%; padding: 14px 16px; margin: 10px 0; border: 1px solid var(--ios-sep); 
+            border-radius: 12px; box-sizing: border-box; font-size: 17px; background-color: #f9f9f9;
+        }
+        .btn-primary { background: var(--ios-blue); color: white; border: none; padding: 16px; border-radius: 12px; width: 100%; font-weight: 600; font-size: 17px; margin-top: 10px; }
+        .btn-secondary { background: #E5E5EA; color: #000; border: none; padding: 16px; border-radius: 12px; width: 100%; font-weight: 500; font-size: 17px; }
+
+        #settings-overlay { display: none; padding: 20px; background: #e9e9eb; margin: 10px 20px; border-radius: 16px; }
+
+        /* iOS Action Sheet */
+        #sync-overlay { align-items: flex-end; }
+        #sync-sheet { width: 100%; padding: 10px 15px 30px; box-sizing: border-box; transform: translateY(100%); transition: transform 0.3s ease-out; }
+        .modal.show #sync-sheet { transform: translateY(0); }
         .sheet-container { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); border-radius: 14px; overflow: hidden; margin-bottom: 10px; }
-        .sheet-btn { padding: 18px; text-align: center; border-bottom: 0.5px solid var(--ios-sep); font-size: 18px; color: var(--ios-blue); }
+        .sheet-btn { padding: 18px; text-align: center; border-bottom: 0.5px solid var(--ios-sep); font-size: 18px; color: var(--ios-blue); cursor: pointer; }
         .sheet-btn.danger { color: var(--ios-red); font-weight: 600; }
-        .sheet-cancel { background: white; border-radius: 14px; padding: 18px; text-align: center; font-size: 18px; font-weight: 600; color: var(--ios-blue); }
+        .sheet-cancel { background: white; border-radius: 14px; padding: 18px; text-align: center; font-size: 18px; font-weight: 600; color: var(--ios-blue); cursor: pointer; }
 
         .quick-nav { position: fixed; right: 8px; top: 55%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 14px; background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 14px 8px; border-radius: 24px; border: 0.5px solid var(--ios-sep); z-index: 999; }
         .nav-item { font-size: 11px; color: var(--ios-blue); text-decoration: none; text-align: center; font-weight: bold; }
@@ -118,7 +92,7 @@
             <span class="settings-btn" onclick="toggleSettings()">⚙️ 設定</span>
             <div class="sync-status">
                 <span id="sync-led" class="led led-done"></span>
-                <span id="sync-text">v1.4.2 已同步</span>
+                <span id="sync-text">v1.4.3 狀態就緒</span>
             </div>
             <h1>行李確認</h1>
         </div>
@@ -131,33 +105,33 @@
 
     <div id="settings-overlay">
         <p style="margin:0 0 5px 5px; font-size:14px; font-weight:600; color:#666;">GAS API URL</p>
-        <input type="text" id="api-url-input" placeholder="貼上 Google Apps Script URL">
+        <input type="text" id="api-url-input" placeholder="貼上 URL...">
         <button class="btn-primary" onclick="saveSettings()">儲存設定</button>
     </div>
 
     <div id="list-container"></div>
     <div class="quick-nav" id="quick-nav"></div>
 
-    <div id="sync-overlay" class="modal" onclick="closeSyncSheet()" style="background:rgba(0,0,0,0.4); align-items:flex-end;">
-        <div id="sync-sheet">
-            <div class="sheet-container">
-                <div class="sheet-btn danger" onclick="forceWrite()">覆蓋雲端 (強制寫入)</div>
-                <div class="sheet-btn" onclick="forceReload()">重新整理 (雲端下載)</div>
-            </div>
-            <div class="sheet-cancel" onclick="closeSyncSheet()">取消操作</div>
-        </div>
-    </div>
-
     <div id="item-modal" class="modal">
         <div class="modal-content">
             <h3 id="modal-title" style="margin:0 0 15px; font-size:22px;">編輯項目</h3>
             <select id="f-category"></select>
             <input type="text" id="f-name" placeholder="名稱">
-            <input type="text" id="f-note" placeholder="備註 (選填)">
+            <input type="text" id="f-note" placeholder="備註">
             <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
                 <button class="btn-primary" onclick="saveItem()">儲存</button>
                 <button class="btn-secondary" onclick="closeModal()">取消</button>
             </div>
+        </div>
+    </div>
+
+    <div id="sync-overlay" class="modal" onclick="closeSyncSheet()">
+        <div id="sync-sheet" onclick="event.stopPropagation()">
+            <div class="sheet-container">
+                <div class="sheet-btn danger" onclick="forceWrite()">覆蓋雲端 (強制寫入)</div>
+                <div class="sheet-btn" onclick="forceReload()">重新整理 (雲端下載)</div>
+            </div>
+            <div class="sheet-cancel" onclick="closeSyncSheet()">取消</div>
         </div>
     </div>
 
@@ -172,9 +146,9 @@
             const led = document.getElementById('sync-led');
             const text = document.getElementById('sync-text');
             led.className = 'led';
-            if (status === 'syncing') { led.classList.add('led-syncing'); text.innerText = '正在同步資料...'; }
-            else if (status === 'done') { led.classList.add('led-done'); text.innerText = `v1.4.2 已完成同步 (${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})`; }
-            else { led.classList.add('led-error'); text.innerText = '同步發生錯誤'; }
+            if (status === 'syncing') { led.classList.add('led-syncing'); text.innerText = '正在同步中...'; }
+            else if (status === 'done') { led.classList.add('led-done'); text.innerText = `v1.4.3 已同步 (${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})`; }
+            else { led.classList.add('led-error'); text.innerText = '同步失敗'; }
         }
 
         async function fetchData() {
@@ -188,8 +162,13 @@
             } catch (e) { setSyncStatus('error'); }
         }
 
-        function showSyncSheet() { document.getElementById('sync-overlay').style.display = 'flex'; document.getElementById('sync-sheet').style.display = 'block'; }
-        function closeSyncSheet() { document.getElementById('sync-overlay').style.display = 'none'; document.getElementById('sync-sheet').style.display = 'none'; }
+        // 彈窗與選單控制
+        function showAddModal() { editingOldName = null; document.getElementById('modal-title').innerText = "新增項目"; document.getElementById('f-name').value = ""; document.getElementById('f-note').value = ""; openModal('item-modal'); }
+        function openEditModal(name) { const item = currentData.find(i => i.name === name); editingOldName = name; document.getElementById('modal-title').innerText = "編輯項目"; document.getElementById('f-category').value = item.category; document.getElementById('f-name').value = item.name; document.getElementById('f-note').value = item.note; openModal('item-modal'); }
+        function openModal(id) { document.getElementById(id).classList.add('show'); }
+        function closeModal() { document.querySelectorAll('.modal').forEach(m => m.classList.remove('show')); }
+        function showSyncSheet() { openModal('sync-overlay'); }
+        function closeSyncSheet() { closeModal(); }
 
         async function forceWrite() { closeSyncSheet(); setSyncStatus('syncing'); try { await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "sync_all", data: currentData }) }); setSyncStatus('done'); } catch (e) { setSyncStatus('error'); } }
         async function forceReload() { closeSyncSheet(); fetchData(); }
@@ -229,7 +208,7 @@
                     itemDiv.className = 'list-item';
                     itemDiv.dataset.name = i.name;
                     itemDiv.innerHTML = `
-                        <span class="edit-mode-only" onclick="deleteItem('${i.name}')" style="color:var(--ios-red); margin-right:15px; font-size:20px;">⊖</span>
+                        <span class="edit-mode-only" onclick="deleteItem('${i.name}')" style="color:var(--ios-red); margin-right:15px; font-size:20px; font-weight:bold; cursor:pointer;">⊖</span>
                         <div class="checkbox ${i.checked ? 'checked' : ''}" onclick="toggleCheck('${i.name}')"></div>
                         <div class="item-content" onclick="isEditing ? openEditModal('${i.name}') : toggleCheck('${i.name}')">
                             <div class="item-name">${i.name}</div>
@@ -241,9 +220,7 @@
                 });
                 container.appendChild(groupDiv);
 
-                sortableInstances.push(Sortable.create(groupDiv, {
-                    group: 'trip-items', handle: '.drag-handle', animation: 150, onEnd: saveNewOrder
-                }));
+                sortableInstances.push(Sortable.create(groupDiv, { group: 'trip-items', handle: '.drag-handle', animation: 150, onEnd: saveNewOrder }));
             });
         }
 
@@ -268,25 +245,7 @@
             apiPost({ action: "update_checked", name, checked: item.checked });
         }
 
-        function toggleEditMode() {
-            isEditing = !isEditing;
-            document.getElementById('body').classList.toggle('is-editing', isEditing);
-            document.getElementById('edit-toggle').innerText = isEditing ? '完成' : '編輯模式';
-            renderList();
-        }
-
-        function openEditModal(name) {
-            const item = currentData.find(i => i.name === name);
-            editingOldName = name;
-            document.getElementById('modal-title').innerText = "編輯項目";
-            document.getElementById('f-category').value = item.category;
-            document.getElementById('f-name').value = item.name;
-            document.getElementById('f-note').value = item.note;
-            document.getElementById('item-modal').style.display = 'flex';
-        }
-
-        function closeModal() { document.getElementById('item-modal').style.display = 'none'; }
-        
+        function toggleEditMode() { isEditing = !isEditing; document.getElementById('body').classList.toggle('is-editing', isEditing); document.getElementById('edit-toggle').innerText = isEditing ? '完成' : '編輯模式'; renderList(); }
         async function saveItem() {
             let cat = document.getElementById('f-category').value;
             const name = document.getElementById('f-name').value.trim();
@@ -294,39 +253,15 @@
             if (cat === "+new") cat = prompt("主項目名稱?");
             if (!cat || !name) return;
             const action = editingOldName ? "edit_item" : "add_item";
-            if (editingOldName) {
-                const i = currentData.find(d => d.name === editingOldName);
-                i.category = cat; i.name = name; i.note = note;
-            } else { currentData.push({ category: cat, name, note, checked: false }); }
+            if (editingOldName) { const i = currentData.find(d => d.name === editingOldName); i.category = cat; i.name = name; i.note = note; }
+            else { currentData.push({ category: cat, name, note, checked: false }); }
             renderList(); closeModal();
             apiPost({ action, category: cat, name, note, oldName: editingOldName, newName: name });
         }
-
-        async function deleteItem(name) {
-            if (confirm(`刪除「${name}」？`)) {
-                currentData = currentData.filter(i => i.name !== name);
-                renderList();
-                apiPost({ action: "delete_item", name });
-            }
-        }
-
-        async function editCategory(oldCat) {
-            const newCat = prompt("重命名類別", oldCat);
-            if (!newCat || newCat === oldCat) return;
-            currentData.forEach(i => { if(i.category === oldCat) i.category = newCat; });
-            renderList();
-            apiPost({ action: "edit_category", oldCat, newCat });
-        }
-
-        function toggleSettings() {
-            const el = document.getElementById('settings-overlay');
-            el.style.display = el.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function saveSettings() {
-            const url = document.getElementById('api-url-input').value.trim();
-            if (url) { localStorage.setItem('my_trip_api_url', url); API_URL = url; toggleSettings(); fetchData(); }
-        }
+        async function deleteItem(name) { if (confirm(`刪除「${name}」？`)) { currentData = currentData.filter(i => i.name !== name); renderList(); apiPost({ action: "delete_item", name }); } }
+        async function editCategory(oldCat) { const newCat = prompt("重命名類別", oldCat); if (!newCat || newCat === oldCat) return; currentData.forEach(i => { if(i.category === oldCat) i.category = newCat; }); renderList(); apiPost({ action: "edit_category", oldCat, newCat }); }
+        function toggleSettings() { const el = document.getElementById('settings-overlay'); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
+        function saveSettings() { const url = document.getElementById('api-url-input').value.trim(); if (url) { localStorage.setItem('my_trip_api_url', url); API_URL = url; toggleSettings(); fetchData(); } }
 
         fetchData();
     </script>
