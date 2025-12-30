@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>小 do 旅行準備</title>
+    <title>小 do 行李確認 v1.1.0</title>
     <link rel="manifest" href="./manifest.json">
     <style>
         :root {
@@ -12,45 +12,96 @@
             --ios-blue: #007AFF;
             --ios-sep: #C6C6C8;
         }
+        /* 讓捲動更平滑 */
+        html { scroll-behavior: smooth; }
+        
         body { background-color: var(--ios-bg); font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 0 0 100px; }
-        #offline-notice { display: none; background: #FFF9C4; padding: 10px; text-align: center; font-size: 13px; color: #856404; position: sticky; top: 0; z-index: 100; }
+        
+        #offline-notice { display: none; background: #FFF9C4; padding: 10px; text-align: center; font-size: 13px; color: #856404; position: sticky; top: 0; z-index: 1000; }
+        
         .header { padding: 20px 20px 10px; font-size: 34px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+
+        /* 版本號樣式 */
+        .version-tag { font-size: 12px; color: #8e8e93; font-weight: normal; margin-top: 4px; }
+
+        /* 右側快速導覽列 (iOS Index Style) */
+        .quick-nav {
+            position: fixed;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 999;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 10px 6px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border: 0.5px solid var(--ios-sep);
+        }
+        .nav-item {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--ios-blue);
+            text-decoration: none;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1;
+        }
+
         #settings-overlay { display: none; padding: 20px; background: var(--ios-card); margin: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         input { width: 100%; padding: 12px; border: 1px solid var(--ios-sep); border-radius: 8px; margin: 10px 0; box-sizing: border-box; font-size: 16px; }
         button { background: var(--ios-blue); color: white; border: none; padding: 12px 20px; border-radius: 8px; width: 100%; font-weight: 600; font-size: 17px; }
-        .btn-ghost { background: none; color: var(--ios-blue); margin-top: 10px; }
-        .section-title { padding: 20px 20px 8px; font-size: 13px; color: #6e6e73; text-transform: uppercase; }
+        
+        .section-title { padding: 30px 20px 8px; font-size: 13px; color: #6e6e73; text-transform: uppercase; scroll-margin-top: 20px; }
         .list-group { background: var(--ios-card); border-top: 0.5px solid var(--ios-sep); border-bottom: 0.5px solid var(--ios-sep); }
-        /* 增加點擊感 */
-        .list-item { display: flex; align-items: center; padding: 12px 20px; border-bottom: 0.5px solid var(--ios-sep); cursor: pointer; transition: background 0.2s; }
+        .list-item { display: flex; align-items: center; padding: 12px 20px; border-bottom: 0.5px solid var(--ios-sep); cursor: pointer; }
         .list-item:active { background: #E5E5EA; }
-        .list-item:last-child { border-bottom: none; }
-        .item-name { font-size: 17px; }
-        .item-note { font-size: 14px; color: #8e8e93; }
-        .checkbox { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ios-sep); margin-right: 15px; flex-shrink: 0; position: relative; }
+        .checkbox { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ios-sep); margin-right: 15px; flex-shrink: 0; }
         .checkbox.checked { background-color: var(--ios-blue); border-color: var(--ios-blue); }
         .checkbox.checked::after { content: '✓'; color: white; display: block; text-align: center; line-height: 20px; font-size: 14px; }
     </style>
 </head>
 <body>
     <div id="offline-notice">⚠️ 離線模式</div>
+    
     <div class="header">
-        <span>行李確認</span>
+        <div>
+            行李確認
+            <div class="version-tag">v1.1.0 (20251230)</div>
+        </div>
         <span onclick="toggleSettings()" style="font-size: 17px; color: var(--ios-blue);">設定</span>
     </div>
+
+    <div class="quick-nav" id="quick-nav">
+        </div>
+
     <div id="settings-overlay">
         <input type="text" id="api-url-input" placeholder="貼上 GAS URL">
         <button onclick="saveSettings()">儲存</button>
     </div>
+
     <div id="list-container"></div>
 
     <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./service-worker.js');
-        }
-
+        const VERSION = "1.1.0";
         let API_URL = localStorage.getItem('my_trip_api_url');
-        let currentData = []; // 儲存目前的資料狀態
+        let currentData = [];
+
+        // 導覽標籤縮寫映射 (避免太擁擠)
+        const categoryMap = {
+            "機場": "機場",
+            "重要": "重要",
+            "行李": "行李",
+            "衣物": "衣物",
+            "小do專區": "小do"
+        };
 
         async function fetchData() {
             if (!API_URL) return;
@@ -67,37 +118,17 @@
                     currentData = JSON.parse(cached);
                     renderList(currentData);
                     document.getElementById('offline-notice').style.display = 'block';
-                    document.getElementById('offline-notice').innerText = `⚠️ 離線模式 (最後更新: ${localStorage.getItem('last_sync')})`;
+                    document.getElementById('offline-notice').innerText = `⚠️ 離線模式 (更新於: ${localStorage.getItem('last_sync')})`;
                 }
-            }
-        }
-
-        // 切換勾選狀態的函數
-        async function toggleItem(name) {
-            const item = currentData.find(i => i.name === name);
-            if (!item) return;
-
-            // 1. 立即更新 UI (樂觀更新)
-            item.checked = !item.checked;
-            renderList(currentData);
-            localStorage.setItem('cached_trip_data', JSON.stringify(currentData));
-
-            // 2. 同步回 Google Sheets
-            try {
-                await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', // GAS 跨域限制需要 no-cors
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: item.name, checked: item.checked })
-                });
-            } catch (e) {
-                console.error('同步失敗，待下次連網時嘗試');
             }
         }
 
         function renderList(data) {
             const container = document.getElementById('list-container');
+            const nav = document.getElementById('quick-nav');
             container.innerHTML = '';
+            nav.innerHTML = '';
+            
             const groups = data.reduce((acc, i) => {
                 const cat = i.category || '未分類';
                 if (!acc[cat]) acc[cat] = [];
@@ -105,8 +136,16 @@
                 return acc;
             }, {});
 
+            let index = 0;
             for (const cat in groups) {
-                let html = `<div class="section-title">${cat}</div><div class="list-group">`;
+                const sectionId = `section-${index}`;
+                
+                // 產生右側導覽按鈕
+                const shortName = categoryMap[cat] || cat.substring(0, 2);
+                nav.innerHTML += `<a href="#${sectionId}" class="nav-item">${shortName}</a>`;
+
+                // 產生清單內容
+                let html = `<div class="section-title" id="${sectionId}">${cat}</div><div class="list-group">`;
                 groups[cat].forEach(i => {
                     html += `
                         <div class="list-item" onclick="toggleItem('${i.name}')">
@@ -119,7 +158,23 @@
                 });
                 html += `</div>`;
                 container.innerHTML += html;
+                index++;
             }
+        }
+
+        async function toggleItem(name) {
+            const item = currentData.find(i => i.name === name);
+            if (!item) return;
+            item.checked = !item.checked;
+            renderList(currentData);
+            localStorage.setItem('cached_trip_data', JSON.stringify(currentData));
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ name: item.name, checked: item.checked })
+                });
+            } catch (e) { console.error('Sync failed'); }
         }
 
         function toggleSettings() {
